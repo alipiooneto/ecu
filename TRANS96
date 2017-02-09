@@ -1,0 +1,11 @@
+TRANS96.obj:	TRANS96.asm
+	masm TRANS96;
+
+funtr.obj:	funtr.asm
+	masm funtr;
+
+TRANS96.com:	TRANS96.obj funtr.obj
+	link TRANS96 funtr;
+	exe2bin TRANS96 TRANS96.com
+	del  TRANS96.exe
+
