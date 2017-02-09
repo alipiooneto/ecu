@@ -1,0 +1,738 @@
+;        .Z80
+
+;       .PHASE 4103H
+;        ASEG
+;        ORG 0000H
+        ORG 4100h
+
+        LD E,05H
+MON:    LD B,0FFH
+MON1:   LD A,(ARET)
+        DEC B
+        JR NZ,MON1
+        DEC E
+        JR NZ,MON
+
+INI:    LD SP,STACK          ;POSICIONA STACK
+        LD A,PIOC
+        OUT (PIOP),A
+        LD A,0FFH
+        OUT (PC),A
+        CALL NEW
+        LD H,04H             ;ENDERECO
+P1:     CALL TEC
+        CP INC               ;INCREMENTE
+        JR Z,P1
+        CP PG                ;PROGRAMA
+        JR Z,P1
+        CP DEC               ;DECREMENTE
+        JR Z,P1
+        CP RC                ;RECEPCAO
+        JP Z,RECEP
+        CP 54H
+        JP Z,TRANSF          ;TRANSF. CARTUCHO
+        CP 51H
+        JP Z,LEPROG          ;TRANSF. RAM CART.
+        CP RES               ;RESET
+        CP VER               ;VERIFICA CART.
+        JP Z,VERIF
+        CP GRA               ;GRAVA CARTUCHO
+        JP Z,GRAVA
+        JP Z,INI
+
+        CALL SWRC            ;IMPRIME
+        DEC H
+        JR NZ,P1
+
+        CALL MOS             ;LE END. DISPLAY
+P3:     CALL PTO             ;IMPRIME ": "
+        CALL CONT            ;MOSTRA CONT.
+P2:     CALL TEC
+
+        CP PG                ;PROGRAMA
+        JP Z,PROGR
+
+        CP RC                ;RECEPCAO
+        JP Z,RECEP
+
+        CP INC               ;INCREMENTE
+        JP Z,INCR
+
+        CP DEC               ;DECREMENTE
+        JP Z,DECR
+
+        CP 54H               ;TRANSF. CART.
+        JP Z,TRANSF
+
+        CP 51H               ;TANSF. RAM CART.
+        JP Z,LEPROG
+
+        CP RES               ;RESET
+        JP Z,RESET
+
+        CP VER               ;VERIF. CART.
+        JP Z,VERIF
+
+        CP GRA               ;GRAVA CARTUCHO
+        JP Z,GRAVA
+
+        CALL SWRC            ;IMPRIME CARACTER
+
+        CP 08H               ;POSICAO CURSOR
+        JR NZ,P2
+
+        LD A,86H
+        OUT (DISP),A
+        CALL S3
+        JR P2
+
+
+
+
+        ;** PROGRAMA **
+
+PROGR:  JP (HL)
+
+
+        ;** GRAVA CARTUCHO **
+
+GRAVA:  CALL NEW
+        LD DE,TGRA
+        LD B,10H
+        CALL EST
+GR0:    LD A,0C0H
+        OUT (DISP),A
+        CALL S3
+        LD DE,TVAL
+        LD B,07H
+        CALL EST
+GR1:    CALL TEC
+        CP RES
+        JR Z,GR3
+        CP RET
+        JR Z,GR2
+        CALL SWRC
+        CP 49H               ;POSICAO CURSOR
+        JR NZ,GR1
+        CP RES
+        JR Z,GR3
+        CP RET
+        JR Z,GR2
+        LD A,0C7H
+        OUT (DISP),A
+        CALL S3
+        JR GR1
+GR2:    LD A,0C7H
+        OUT (DISP),A
+        CALL S3
+        CALL COL
+        LD HL,CART
+        LD B,A
+GR2A:   LD A,B
+        LD (HL),A
+        INC HL
+        LD A,H
+        CP 00H
+        JR NZ,GR2A
+        CALL NEW
+        LD DE,FING
+        LD B,10H
+        CALL EST
+GR2B:   CALL TEC
+        CP RET
+        JP Z,INI
+        JR GR2B
+
+GR3:    LD A,0C0H
+        OUT (DISP),A
+        CALL S3
+        LD B,0FH
+        LD DE,BRA
+        CALL EST
+        JR GR0
+
+
+
+        ;** VERIFICA CARTUCHO **
+
+VERIF:  CALL NEW
+        LD DE,TVER
+        LD B,10H
+        CALL EST
+VR0:    LD A,0C0H
+        OUT (DISP),A
+        CALL S3
+        LD DE,TVAL
+        LD B,07H
+        CALL EST
+VR1:    CALL TEC
+        CP RES
+        JR Z,VR3
+        CP RET
+        JR Z,VR2
+        CALL SWRC
+        CP 49H               ;POSICAO CURSOR
+        JR NZ,VR1
+        CP RES
+        JR Z,VR3
+        CP RET
+        JR Z,VR2
+        LD A,0C7H
+        OUT (DISP),A
+        CALL S3
+        JR VR1
+VR2:    LD A,0C7H
+        OUT (DISP),A
+        CALL S3
+        CALL COL
+        LD HL,CART
+        LD B,A
+VR2A:   LD A,(HL)
+        CP B
+        JR NZ,VERR
+        INC HL
+        LD A,H
+        CP 00H
+        JR NZ,VR2A
+        CALL NEW
+        LD DE,CAOK
+        LD B,10H
+        CALL EST
+VR2B:   CALL TEC
+        CP RET
+        JP Z,INI
+        JR VR2B
+
+VR3:    LD A,0C0H
+        OUT (DISP),A
+        CALL S3
+        LD B,0FH
+        LD DE,BRA
+        CALL EST
+        JR VR0
+
+
+VERR:   CALL NOVO
+        CALL PTO
+        CALL CONT
+VERR1:  CALL TEC
+        CP RET
+        JP Z,INI
+        JR VERR1
+
+
+
+        ;** INCREMENTE **
+
+INCR:   CALL CONT1           ;POSICIONA CURSOR
+        CALL COL             ;COLETA DADOS
+        LD (HL),A
+        INC HL
+        CALL NOVO            ;PROXIMO ENDERECO
+        JP P3
+
+        ;** DECREMENTE **
+
+DECR:   CALL CONT1
+        CALL COL
+        LD (HL),A
+        DEC HL
+        CALL NOVO
+        JP P3
+
+
+
+        ;** RESET **
+
+RESET:  CALL CONT1
+        CALL COL
+        LD (HL),A
+        JP INI
+
+
+        ;CONFIGURA ACIA
+
+CONFIG1:OUT (RACIA1),A
+        LD HL,05FFH
+O11:    DEC HL
+        LD A,H
+        CP 00H
+        JR NZ,O11
+        LD A,0BH
+        OUT (COMR1),A
+        LD A,9EH
+        OUT (COTR1),A
+        LD A,0FH
+O12:    DEC A
+        JR NZ,O12
+        IN A,(STAT1)
+        LD B,0FH
+O13:    DEC B
+        JR NZ,O13
+        CP 10H
+        JR NZ,CONFIG1
+        RET
+
+
+        ;CONFIGURA ACIA
+
+CONFIG: OUT (RACIA),A
+        LD HL,05FFH
+O11A:   DEC HL
+        LD A,H
+        CP 00H
+        JR NZ,O11A
+        LD A,0BH
+        OUT (COMR),A
+        LD A,9FH
+        OUT (COTR),A
+        LD A,0FH
+O12A:   DEC A
+        JR NZ,O12A
+        IN A,(STAT)
+        LD B,0FH
+O13A:   DEC B
+        JR NZ,O13A
+        CP 10H
+        JR NZ,CONFIG
+        RET
+
+        ;TRANSF. ENTRE CART.
+
+TRANSF: CALL NEW
+        LD DE,PRR
+        CALL EST1
+TRANSF1:CALL TEC
+        CP 32H
+        JR Z,TRANSF5
+        CP 31H
+        JR NZ,TRANSF1
+;----------------------------
+
+        ;**TRANSMITIR**
+       
+        CALL NEW
+        LD DE,AGU1
+        LD B,10H
+        CALL EST
+        CALL CONFIG
+        LD HL,CART
+TRANSF2:LD A,(HL)
+        CALL TRANSB
+        CALL RE
+        INC HL
+        LD A,H
+        CP 00H
+        JR NZ,TRANSF2
+        CALL CONTA
+        JP INI
+
+
+        ;**RECEPCAO**
+
+TRANSF5:CALL NEW
+        LD DE,AGU2
+        LD B,10H
+        CALL EST
+        CALL CONFIG
+        LD HL,CART
+TRANSF6:CALL RE
+        LD (HL),A
+        CALL TRANSB
+        INC HL
+        LD A,H
+        CP 00H
+        JR NZ,TRANSF6
+        JP INI
+;----------------------------
+
+        ;TRANSF. RAM CART.
+
+LEPROG: CALL NEW
+        LD DE,AGU3
+        CALL EST1
+LEP1:   CALL TEC
+        CP 32H
+        JR Z,LEP6
+        CP 31H
+        JR NZ,LEP1
+
+        ;SALVA  RAM -> CART
+
+        LD DE,CART
+        LD HL,4000H
+LEP3:   LD BC,3FFFH
+        LDIR
+        JP INI
+
+        ;CARREGA CART -> RAM
+
+LEP6:   LD DE,4000H
+        LD HL,CART
+        JR LEP3
+
+        ;** RECEPCAO **
+
+RECEP:  CALL NEW             ;LIMPA DISPLAY
+        LD DE,TREC
+        LD B,10H
+        CALL EST
+RR1A:   CALL TEC
+        LD HL,2100H
+        CP '2'
+        JR Z,RR1C
+        LD HL,4100H
+        CP '4'
+        JR Z,RR1C
+        LD HL,6100H
+        CP '6'
+        JR NZ,RR1A
+RR1C:   PUSH HL
+        CALL NEW
+        LD DE,AGU            ;AGUARDE
+        LD B,07H
+        CALL EST 
+        CALL CONFIG1
+        LD BC,3FFFH
+        POP HL
+O1:     CALL RE1
+        LD (HL),A
+        CALL TRANS
+        INC HL
+        DEC BC
+        LD A,B
+        CP 00H
+        JR NZ,O1
+
+
+        ;** SUB-ROTINAS **
+
+
+        ;** ESCREVE TABELA **
+
+NEW:    LD DE,TDIS
+        LD B,04H
+
+WDIS:   LD A,(DE)
+        OUT (DISP),A
+S1:     IN A,(DISP)
+        RLCA
+        JR C,S1
+        INC DE
+        DJNZ WDIS
+        RET
+
+
+
+
+        ;** ESCREVE CARACTER **
+
+SWRC:   OUT (DISW),A
+S3:     IN A,(DISP)
+        RLCA
+        JR C,S3
+        IN A,(DISP)
+        RET
+
+        ;** ESCREVE TABELA **
+
+EST:    LD A,(DE)
+        CALL SWRC
+        INC DE
+        DJNZ EST
+        RET
+
+
+        ;**TABELA POS. INF.**
+
+EST1:   LD B,10H
+        CALL EST
+        LD A,0C0H
+        OUT (DISP),A
+        CALL S3
+        LD B,10H
+        CALL EST
+        RET
+
+
+        ;** LEITURA TECLADO **
+
+TEC:    LD DE,VAR
+        LD BC,TT1
+C1:     LD A,D
+        OUT (PA),A
+        RLCA
+        LD D,A
+        IN A,(PB)
+        CP TACI
+        JR NZ,S5
+        LD A,08H
+S21:    INC BC
+        DEC A
+        JR NZ,S21
+        DEC E
+        JR NZ,C1
+        JR TEC
+S5:     RRCA
+        JR NC,S6
+        INC BC
+        JR S5
+S6:     LD A,(BC)
+        LD B,A
+        LD D,50H
+S7:     LD E,50H
+S8:     DEC E
+        JR NZ,S8
+        DEC D
+        JR NZ,S7
+S9:     IN A,(PB)
+        CP TACI
+        JR NZ,S9
+S10:    DEC A
+        JR NZ,S10
+S11:    IN A,(PB)
+        CP TACI
+        JR NZ,S11
+        LD A,B
+        CP NVAL
+        JR Z,TEC
+        RET
+
+
+        ;** LE END. VISOR ARMAZ. (HL) **
+
+MOS:    LD A,80H
+        OUT (DISP),A
+        CALL S3
+        CALL COL
+        LD H,A
+        CALL COL
+        LD L,A
+        RET
+
+
+        ;** COLETA END. VISOR **
+
+COL:    IN A,(DISW)
+        CALL ASC
+        RLCA
+        RLCA
+        RLCA
+        RLCA
+        LD B,A
+        IN A,(DISW)
+        CALL ASC
+        ADD A,B
+        RET
+
+
+        ;** TRANSF.  ASC->HEX **
+
+ASC:    BIT 6,A
+        JR Z,ASC1
+        SUB 40H
+        ADD A,09H
+        RET
+ASC1:   SUB 30H
+        RET
+
+
+        ;** IMPRIME  ": " **
+
+PTO:    LD A,3AH
+        CALL SWRC
+        LD A,20H
+        CALL SWRC
+        RET
+
+
+        ;** APRESENTA CONTEUDO **
+
+CONT:   LD A,(HL)
+        AND 0F0H
+        RRCA
+        RRCA
+        RRCA
+        RRCA
+        CALL HEX
+        CALL SWRC
+        LD A,(HL)
+        AND 0FH
+        CALL HEX
+        CALL SWRC
+CONT1:  LD A,86H
+        OUT (DISP),A
+        JP S3
+
+
+
+        ;** TRANS.  HEX->ASC **
+
+HEX:    CP 09H
+        JR Z,HEX1
+        JR NC,HEX2
+HEX1:   ADD A,30H
+        RET
+HEX2:   ADD A,40H
+        SUB 09H
+        RET
+
+
+        ;** APRESENTA NOVO END/CONT. **
+
+NOVO:   CALL NEW
+        LD A,H
+        LD D,A
+        CALL APRES
+        LD A,L
+        LD D,A
+APRES:  AND 0F0H
+        RRCA
+        RRCA
+        RRCA
+        RRCA
+        CALL HEX
+        CALL SWRC
+        LD A,D
+        AND 0FH
+        CALL HEX
+        JP SWRC
+
+
+
+        ;**  RECEPCAO  **
+
+
+RE1:    IN A,(STAT1)
+        CP 18H
+        JR NZ,RE1
+        IN A,(TXD1)
+        RET
+
+TRANS:  OUT (TXD1),A
+TRANS1: IN A,(STAT1)
+        CP 10H
+        JR NZ,TRANS1
+        RET
+
+
+RE:     IN A,(STAT)
+        CP 18H
+        JR NZ,RE
+        IN A,(TXD)
+        RET
+
+TRANSB: OUT (TXD),A
+TRANSC: IN A,(STAT)
+        CP 10H
+        JR NZ,TRANSC
+        RET
+
+CONTA:  LD DE,0FFFFH
+CONTA1: DEC DE
+        LD A,D
+        CP 00H
+        JR NZ,CONTA1
+        RET
+
+
+
+
+        ;**  TABELAS  **
+
+        ;RAM 6264-3   /  EPROM  2732-3
+
+        ;STACK POINTER  -  VARIAVEIS -  4000H / 40FFH
+
+
+ENDIP:  equ      4020h    ;ENDERECO PRINT
+STACK:  equ      40e0h      ;STACK POINTER
+ARET:   equ      4100h      ;ARQUIVO RETORNO
+ARET1:  equ      6000h      ; + 8 KB RAM
+PG:     equ      50h        ;PROGRAMA
+NVAL:   equ      00h        ;TECLA NAO VALIDA
+PA:     equ      10h        ;LATCH
+PB:     equ      50h        ;LEITURA TECLADO
+PC:     equ      90h        ;IMP. PARALELA
+PIOC:   equ      82h        ;PB -> ENTRADA
+                           ;PA e PC -> SAIDA
+PIOP:   equ      0D0h       ;PROGRAMA PIO
+
+
+TACI:   equ      0FFh       ;TECLA ACIONADA
+DISP:   equ      38h        ;PROG. DISPLAY
+DISW:   equ      39h        ;ESCR. DISPLAY
+INC:    equ      49h        ;INCREMENTE
+
+DEC:    equ      53h        ;DECREMENTE
+VAR:    equ      0FE08h     ;KTES VARREDURA
+RES:    equ      03h        ;RESET
+RC:     equ      52h        ;RECEPCAO
+
+
+
+
+;****  PARA O DB-25  ****
+
+TXD:    equ      30h        ;TRANS/REC.
+STAT:   equ      31h        ;STATUS
+COMR:   equ      32h        ;COMANDER REG.
+COTR:   equ      33h        ;CONTROL REGISTER
+RACIA:  equ      20h        ;RESET DA ACIA
+
+;****  PARA O DIN   ****
+
+TXD1:   equ 34H      ;TRANS/REC.
+STAT1:  equ 35H      ;STATUS
+COMR1:  equ 36H      ;COMANDER REG.
+COTR1:  equ 37H      ;CONTROL REGISTER
+RACIA1: equ 24H      ;RESET DA ACIA
+
+CART:   equ 8000H    ;END. INICIAL CARTUCHO
+RET:    equ 0F3H     ;RETORNO
+VER:    equ 56H      ;VERIFICA CARTUCHO
+GRA:    equ 47H      ;GRAVA CARTUCHO
+CART:   equ 8000H    ;END. INICIAL CARTUCHO
+
+
+TDIS:   DB      38H,06H,0EH,01H
+
+
+TT1:    DB      46H,00H,35H,00H,00H,00H,00H,00H
+        DB      53H,00H,38H,243,00H,00H,00H,00H
+        DB      52H,34H,36H,00H,00H,00H,00H,00H
+        DB      41H,03H,37H,54H,42H,00H,00H,00H
+        DB      44H,00H,39H,50H,00H,00H,00H,00H
+        DB      45H,31H,00H,00H,30H,00H,00H,00H
+        DB      51H,32H,00H,49H,43H,00H,00H,00H
+        DB      00H,33H,00H,00H,56H,47H,00H,00H
+
+
+TREC:   DB      "2100  4100 6100 "
+
+AGU:    DB      41H,47H,55H,41H,52H,44H,45H
+
+AGU1:   DB      "TRANSMITINDO    "
+
+AGU2:   DB      "RECEBENDO       "
+
+AGU3:   DB      "RAM -> CART = 1 "
+AGU4:   DB      "CART -> RAM = 2 "
+
+PRR:    DB      "TRANSF. CART.= 1"
+PRR1:   DB      "RECEBE  CART.= 2"
+
+TVER:   DB      "VERIF. CARTUCHO "
+
+TGRA:   DB      "GRAVA  CARTUCHO "
+
+TVAL:   DB      "VALOR: "
+
+BRA:    DB      "                 "
+
+FING:   DB      "FIM DE GRAVACAO  "
+
+CAOK:   DB      "CARTUCHO  #  OK  "
+
+        END
+

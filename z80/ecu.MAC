@@ -1,0 +1,110 @@
+
+        ORG 4100h
+
+        LD E,05H
+MON:    LD B,0FFH
+MON1:   LD A,(ARET)
+        DEC B
+        JR NZ,MON1
+        DEC E
+        JR NZ,MON
+
+INI:    LD SP,STACK          ;POSICIONA STACK
+		CALL NEW             ;LIMPA DISPLAY
+
+        xor a                ;** Posiciona Cursor Linha Superior
+        CALL SPOS
+        LD DE,TREC
+        CALL EST
+
+        ld a,40h             ;** Posiciona Cursor Linha Inferior
+        CALL SPOS
+        LD DE,TREC1
+        CALL EST
+ 		
+		
+rod1:   LD d,0ffh
+        ld a,18h
+        OUT (DISP),A
+S22:    IN A,(DISP)
+        RLCA
+        JR C,S22
+S40:    LD E,0ffH
+S41:    DEC  E
+		JR   NZ,S41
+		DEC  D
+	    JR   NZ,S40
+		jr rod1
+		
+		halt
+		
+
+        ;** SUB-ROTINAS **
+
+
+        ;** ESCREVE TABELA **
+
+NEW:    LD DE,TDIS
+        LD B,04H
+
+WDIS:   LD A,(DE)
+        OUT (DISP),A
+S1:     IN A,(DISP)
+        RLCA
+        JR C,S1
+        INC DE
+        DJNZ WDIS
+        RET
+
+
+        ;** ESCREVE TABELA **
+
+EST:    LD A,(DE)
+        CP FIMLN
+		RET Z
+		CALL SWRC
+        INC DE
+        JR EST
+		
+		;DJNZ EST
+        ;RET
+
+
+        ;** ESCREVE CARACTER **
+
+SWRC:   OUT (DISW),A
+S3:     IN A,(DISP)
+        RLCA
+        JR C,S3
+        IN A,(DISP)
+        RET
+
+      
+		
+SPOS:   SET  7,A             ;Posiciona cursor
+        OUT  (DISP),A
+        CALL DOFF
+        RET		
+			
+		
+
+DOFF:   IN   A,(DISP)       ;Status display
+        RLCA
+        JR   C,$ -3
+        IN   A,(DISP)       ;Posicao cusor
+        RET                  ;Reg. A
+		
+		
+TDIS:   db      38H,06H,0EH,01H
+TREC:   db      " Alipio  /  Jesse.. Modulos -> ECU  $"
+TREC1:  db      " ... Todos os Modelos de Carros ....$"
+ARET:   EQU      4600H
+STACK:  EQU      40e0h      ;STACK POINTER
+DISP:   EQU      38h        ;PROG. DISPLAY
+DISW:   EQU      39h        ;ESCR. DISPLAY
+FIMLN:  EQU      24H
+
+
+	   END
+
+    
